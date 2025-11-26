@@ -11,11 +11,16 @@ const defaultState = {
 
 const elements = {};
 
-document.addEventListener("DOMContentLoaded", init);
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
+}
 
 function init() {
   cacheElements();
   assertElements();
+  console.log(LOG_PREFIX, "DOM ready, initializing");
   const state = ensureState();
   populateFormDefaults(state);
   bindEvents();
@@ -96,6 +101,10 @@ function bindEvents() {
 
 function populateFormDefaults(state) {
   console.log(LOG_PREFIX, "Populating form defaults with state", state);
+  if (!elements.ptoHours || !elements.ptoDate || !elements.checkDate) {
+    console.error(LOG_PREFIX, "Required inputs missing; skipping populate");
+    return;
+  }
   elements.ptoHours.value = state.hoursPerDay;
   const today = toDateInputValue(new Date());
   elements.ptoDate.value = today;
@@ -199,7 +208,7 @@ function saveState(state) {
   const expires = new Date(Date.now() + MS_PER_DAY * 365).toUTCString();
   const value = encodeURIComponent(JSON.stringify(state));
   console.log(LOG_PREFIX, "Persisting state to cookie", state);
-  document.cookie = `${COOKIE_NAME}=${value}; expires=${expires}; path=/; SameSite=Lax`;
+  document.cookie = `${COOKIE_NAME}=${value}; expires=${expires}; path=/; SameSite=Lax; Secure`;
   console.log(LOG_PREFIX, "document.cookie after save", document.cookie);
 }
 
