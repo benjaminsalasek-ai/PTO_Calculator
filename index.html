@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PTO Calculator</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>PTO Calculator</h1>
+      <p class="lead">Track accrued PTO, submitted hours, and see what you will have on any date.</p>
+    </header>
+
+    <section class="card">
+      <h2>Record PTO Taken</h2>
+      <form id="pto-entry-form" class="stack">
+        <label>
+          PTO date:
+          <input type="date" id="ptoDate" required>
+        </label>
+        <label>
+          Hours used (defaults to 8):
+          <input type="number" id="ptoHours" min="0" max="24" step="0.25" value="8" required>
+        </label>
+        <button type="submit">Add PTO Entry</button>
+      </form>
+      <button id="resetEntries" class="link-button">Clear PTO history</button>
+    </section>
+
+    <section class="card">
+      <h2>Check PTO By Date</h2>
+      <form id="pto-check-form" class="stack">
+        <label>
+          Date to check:
+          <input type="date" id="checkDate" required>
+        </label>
+      </form>
+      <div class="balance">
+        <div>
+          <p class="label">Accrued hours by date</p>
+          <p id="accruedHours" class="value">0</p>
+        </div>
+        <div>
+          <p class="label">Hours used</p>
+          <p id="usedHours" class="value">0</p>
+        </div>
+        <div>
+          <p class="label">Hours available</p>
+          <p id="availableHours" class="value">0</p>
+          <p class="subvalue" id="availableDays">0 days</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>PTO History</h2>
+      <ul id="history" class="history-list"></ul>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,146 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: linear-gradient(135deg, #f4f7fb, #e3e9f3);
+  color: #1f2a44;
+}
+
+.app {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 32px 16px 64px;
+}
+
+header {
+  margin-bottom: 16px;
+}
+
+h1 {
+  margin: 0 0 4px;
+  font-size: 32px;
+}
+
+h2 {
+  margin: 0 0 12px;
+  font-size: 20px;
+  color: #15203a;
+}
+
+.lead {
+  margin: 0;
+  color: #4f5d78;
+}
+
+.card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+}
+
+form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 600;
+  color: #243459;
+}
+
+input[type="date"],
+input[type="number"] {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #c8d2e3;
+  font-size: 14px;
+  color: #1f2a44;
+}
+
+button {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: none;
+  background: #1c6dd0;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(28, 109, 208, 0.3);
+}
+
+.link-button {
+  margin-top: 8px;
+  background: transparent;
+  color: #1c6dd0;
+  box-shadow: none;
+  padding: 6px 0;
+  text-align: left;
+}
+
+.stack {
+  display: grid;
+  gap: 12px;
+}
+
+.balance {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.label {
+  margin: 0;
+  color: #4f5d78;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.value {
+  margin: 4px 0;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.subvalue {
+  margin: 0;
+  color: #4f5d78;
+}
+
+.history-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.history-list li {
+  padding: 10px 12px;
+  border: 1px solid #e0e6f0;
+  border-radius: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f9fbff;
+}
+
+.history-list .meta {
+  color: #4f5d78;
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .app {
+    padding: 16px 12px 48px;
+  }
+}
