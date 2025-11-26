@@ -1,11 +1,11 @@
 const COOKIE_NAME = "ptoData";
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const ACCRUAL_DAYS_PER_YEAR = 20;
+const HOURS_PER_DAY = 8;
 const LOG_PREFIX = "[PTO]";
 
 const defaultState = {
   startDate: "2024-09-15",
-  hoursPerDay: 8,
   entries: [],
 };
 
@@ -54,7 +54,7 @@ function bindEvents() {
     const state = ensureState();
     console.log(LOG_PREFIX, "Submitting PTO entry with state from cookie", state);
     const entryDate = elements.ptoDate.value || toDateInputValue(new Date());
-    const hours = Number(elements.ptoHours.value) || state.hoursPerDay;
+    const hours = Number(elements.ptoHours.value) || HOURS_PER_DAY;
     const next = {
       ...state,
       entries: [...state.entries, { date: entryDate, hours }],
@@ -63,7 +63,7 @@ function bindEvents() {
     saveState(next);
     const refreshed = ensureState();
     console.log(LOG_PREFIX, "State after save", refreshed);
-    elements.ptoHours.value = state.hoursPerDay;
+    elements.ptoHours.value = HOURS_PER_DAY;
     updateUI(refreshed);
   });
 
@@ -105,10 +105,10 @@ function populateFormDefaults(state) {
     console.error(LOG_PREFIX, "Required inputs missing; skipping populate");
     return;
   }
-  elements.ptoHours.value = state.hoursPerDay;
+  elements.ptoHours.value = HOURS_PER_DAY;
   const today = toDateInputValue(new Date());
   elements.ptoDate.value = today;
-  elements.checkDate.value = state.startDate || today;
+  elements.checkDate.value = today;
 }
 
 function updateUI(state) {
@@ -117,7 +117,7 @@ function updateUI(state) {
   const accruedHours = calculateAccruedHours(checkDate, state);
   const usedHours = calculateUsedHours(checkDate, state);
   const availableHours = Math.max(0, accruedHours - usedHours);
-  const availableDays = availableHours / state.hoursPerDay;
+  const availableDays = availableHours / HOURS_PER_DAY;
 
   elements.accruedHours.textContent = accruedHours.toFixed(2);
   elements.usedHours.textContent = usedHours.toFixed(2);
@@ -133,7 +133,7 @@ function calculateAccruedHours(targetDateString, state) {
   const target = toStartOfDay(targetDateString);
   if (!start || !target || target < start) return 0;
   const daysElapsed = (target - start) / MS_PER_DAY;
-  const accrualPerDay = (ACCRUAL_DAYS_PER_YEAR * state.hoursPerDay) / 365;
+  const accrualPerDay = (ACCRUAL_DAYS_PER_YEAR * HOURS_PER_DAY) / 365;
   const accrued = daysElapsed * accrualPerDay;
   console.log(LOG_PREFIX, "Accrued calculation", { daysElapsed, accrualPerDay, accrued });
   return accrued;
@@ -168,7 +168,7 @@ function renderHistory(state) {
         <div class="meta">${Number(entry.hours).toFixed(2)} hours</div>
       </div>
       <div class="meta">
-        ${(Number(entry.hours) / state.hoursPerDay).toFixed(2)} days
+        ${(Number(entry.hours) / HOURS_PER_DAY).toFixed(2)} days
         <button data-delete-index="${entry.__index}" class="small-button">Delete</button>
       </div>
     `;
@@ -178,8 +178,10 @@ function renderHistory(state) {
 
 function ensureState() {
   const state = loadState();
-  saveState(state);
-  return state;
+  // Strip any legacy hoursPerDay if present in existing cookies.
+  const normalized = { startDate: state.startDate || defaultState.startDate, entries: state.entries || [] };
+  saveState(normalized);
+  return normalized;
 }
 
 function loadState() {
