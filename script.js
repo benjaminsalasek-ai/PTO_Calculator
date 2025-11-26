@@ -1,6 +1,7 @@
 const COOKIE_NAME = "ptoData";
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const ACCRUAL_DAYS_PER_YEAR = 20;
+const LOG_PREFIX = "[PTO]";
 
 const defaultState = {
   startDate: "2024-09-15",
@@ -14,15 +15,13 @@ init();
 
 function init() {
   cacheElements();
-  const state = loadState();
+  const state = ensureState();
   populateFormDefaults(state);
   bindEvents();
   updateUI(state);
 }
 
 function cacheElements() {
-  elements.startDate = document.getElementById("startDate");
-  elements.hoursPerDay = document.getElementById("hoursPerDay");
   elements.ptoDate = document.getElementById("ptoDate");
   elements.ptoHours = document.getElementById("ptoHours");
   elements.ptoEntryForm = document.getElementById("pto-entry-form");
@@ -38,57 +37,64 @@ function cacheElements() {
 function bindEvents() {
   elements.ptoEntryForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    const state = loadState();
+    const state = ensureState();
+    console.log(LOG_PREFIX, "Submitting PTO entry with state from cookie", state);
     const entryDate = elements.ptoDate.value || toDateInputValue(new Date());
     const hours = Number(elements.ptoHours.value) || state.hoursPerDay;
     const next = {
       ...state,
       entries: [...state.entries, { date: entryDate, hours }],
     };
+    console.log(LOG_PREFIX, "Saving PTO entry", { entryDate, hours });
     saveState(next);
+    const refreshed = ensureState();
+    console.log(LOG_PREFIX, "State after save", refreshed);
     elements.ptoHours.value = state.hoursPerDay;
-    updateUI(next);
+    updateUI(refreshed);
   });
 
   elements.resetEntries.addEventListener("click", () => {
-    const state = loadState();
+    const state = ensureState();
+    console.log(LOG_PREFIX, "Clearing PTO history", state.entries);
     const next = { ...state, entries: [] };
     saveState(next);
-    updateUI(next);
+    const refreshed = ensureState();
+    console.log(LOG_PREFIX, "State after clearing history", refreshed);
+    updateUI(refreshed);
   });
 
-  elements.startDate.addEventListener("change", () => {
-    const state = loadState();
-    const next = { ...state, startDate: elements.startDate.value };
-    saveState(next);
-    updateUI(next);
-  });
-
-  elements.hoursPerDay.addEventListener("change", () => {
-    const state = loadState();
-    const hoursPerDay = Math.max(1, Number(elements.hoursPerDay.value) || state.hoursPerDay);
-    elements.hoursPerDay.value = hoursPerDay;
-    const next = { ...state, hoursPerDay };
-    saveState(next);
-    updateUI(next);
+  elements.history.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-delete-index]");
+    if (!button) return;
+    const index = Number(button.dataset.deleteIndex);
+    const state = ensureState();
+    console.log(LOG_PREFIX, "Deleting PTO entry", { index, state });
+    if (Number.isInteger(index) && index >= 0 && index < state.entries.length) {
+      const nextEntries = state.entries.filter((_, i) => i !== index);
+      saveState({ ...state, entries: nextEntries });
+      const refreshed = ensureState();
+      console.log(LOG_PREFIX, "State after delete", refreshed);
+      updateUI(refreshed);
+    }
   });
 
   elements.checkDate.addEventListener("change", () => {
-    const state = loadState();
+    const state = ensureState();
+    console.log(LOG_PREFIX, "Check date changed to", elements.checkDate.value, "state", state);
     updateUI(state);
   });
 }
 
 function populateFormDefaults(state) {
-  elements.startDate.value = state.startDate;
-  elements.hoursPerDay.value = state.hoursPerDay;
+  console.log(LOG_PREFIX, "Populating form defaults with state", state);
   elements.ptoHours.value = state.hoursPerDay;
   const today = toDateInputValue(new Date());
   elements.ptoDate.value = today;
-  elements.checkDate.value = today;
+  elements.checkDate.value = state.startDate || today;
 }
 
 function updateUI(state) {
+  console.log(LOG_PREFIX, "Updating UI with state", state);
   const checkDate = elements.checkDate.value || toDateInputValue(new Date());
   const accruedHours = calculateAccruedHours(checkDate, state);
   const usedHours = calculateUsedHours(checkDate, state);
@@ -104,15 +110,19 @@ function updateUI(state) {
 }
 
 function calculateAccruedHours(targetDateString, state) {
+  console.log(LOG_PREFIX, "Calculating accrued hours for", targetDateString, "with state", state);
   const start = toStartOfDay(state.startDate);
   const target = toStartOfDay(targetDateString);
   if (!start || !target || target < start) return 0;
-  const daysElapsedInclusive = Math.floor((target - start) / MS_PER_DAY) + 1;
+  const daysElapsed = (target - start) / MS_PER_DAY;
   const accrualPerDay = (ACCRUAL_DAYS_PER_YEAR * state.hoursPerDay) / 365;
-  return daysElapsedInclusive * accrualPerDay;
+  const accrued = daysElapsed * accrualPerDay;
+  console.log(LOG_PREFIX, "Accrued calculation", { daysElapsed, accrualPerDay, accrued });
+  return accrued;
 }
 
 function calculateUsedHours(targetDateString, state) {
+  console.log(LOG_PREFIX, "Calculating used hours for", targetDateString, "with state", state);
   const target = toStartOfDay(targetDateString);
   if (!target) return 0;
   return state.entries
@@ -121,7 +131,10 @@ function calculateUsedHours(targetDateString, state) {
 }
 
 function renderHistory(state) {
-  const sorted = [...state.entries].sort((a, b) => new Date(a.date) - new Date(b.date));
+  console.log(LOG_PREFIX, "Rendering history", state.entries);
+  const sorted = state.entries
+    .map((entry, index) => ({ ...entry, __index: index }))
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
   elements.history.innerHTML = "";
   if (!sorted.length) {
     elements.history.innerHTML = "<li>No PTO recorded yet.</li>";
@@ -136,23 +149,39 @@ function renderHistory(state) {
         <div>${date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</div>
         <div class="meta">${Number(entry.hours).toFixed(2)} hours</div>
       </div>
-      <div class="meta">${(Number(entry.hours) / state.hoursPerDay).toFixed(2)} days</div>
+      <div class="meta">
+        ${(Number(entry.hours) / state.hoursPerDay).toFixed(2)} days
+        <button data-delete-index="${entry.__index}" class="small-button">Delete</button>
+      </div>
     `;
     elements.history.appendChild(li);
   });
 }
 
+function ensureState() {
+  const state = loadState();
+  saveState(state);
+  return state;
+}
+
 function loadState() {
+  const raw = getCookie(COOKIE_NAME);
+  if (!raw) {
+    console.log(LOG_PREFIX, "No cookie found, seeding default state", defaultState);
+    return { ...defaultState };
+  }
   try {
-    const raw = getCookie(COOKIE_NAME);
-    if (!raw) return { ...defaultState };
     const parsed = JSON.parse(decodeURIComponent(raw));
-    return {
+    const state = {
       ...defaultState,
       ...parsed,
       entries: Array.isArray(parsed.entries) ? parsed.entries : [],
     };
-  } catch {
+    console.log(LOG_PREFIX, "Loaded state from cookie", state);
+    return state;
+  } catch (error) {
+    console.log(LOG_PREFIX, "Failed to parse cookie; resetting to default", error, defaultState);
+    saveState(defaultState);
     return { ...defaultState };
   }
 }
@@ -160,16 +189,20 @@ function loadState() {
 function saveState(state) {
   const expires = new Date(Date.now() + MS_PER_DAY * 365).toUTCString();
   const value = encodeURIComponent(JSON.stringify(state));
-  document.cookie = `${COOKIE_NAME}=${value}; expires=${expires}; path=/`;
+  console.log(LOG_PREFIX, "Persisting state to cookie", state);
+  document.cookie = `${COOKIE_NAME}=${value}; expires=${expires}; path=/; SameSite=Lax`;
+  console.log(LOG_PREFIX, "document.cookie after save", document.cookie);
 }
 
 function getCookie(name) {
   const prefix = `${name}=`;
-  return document.cookie
+  const rawCookie = document.cookie
     .split(";")
     .map((part) => part.trim())
     .find((part) => part.startsWith(prefix))
     ?.slice(prefix.length);
+  console.log(LOG_PREFIX, "Read cookie", rawCookie);
+  return rawCookie;
 }
 
 function toDateInputValue(date) {
@@ -180,5 +213,6 @@ function toStartOfDay(value) {
   if (!value) return null;
   const normalized = new Date(`${value}T00:00:00`);
   if (Number.isNaN(normalized.getTime())) return null;
+  console.log(LOG_PREFIX, "Normalized date", value, "->", normalized);
   return normalized;
 }
