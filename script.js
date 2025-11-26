@@ -11,11 +11,11 @@ const LOG_PREFIX = "[PTO]";
 
 // Hard-coded PTO entries (8h each) that act like pre-entered days; editable in code.
 const hard_coded_dates = [
-  { date: "2024-10-27", hours: 8 },
-  { date: "2024-12-10", hours: 8 },
-  { date: "2024-12-22", hours: 8 },
-  { date: "2024-12-23", hours: 8 },
-  { date: "2024-12-26", hours: 8 },
+  { date: "2025-10-27", hours: 8 },
+  { date: "2025-12-10", hours: 8 },
+  { date: "2025-12-22", hours: 8 },
+  { date: "2025-12-23", hours: 8 },
+  { date: "2025-12-26", hours: 8 },
 ];
 
 // Shape of stored state. startDate stays fixed; entries is PTO usage.
