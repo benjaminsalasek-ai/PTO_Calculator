@@ -1,16 +1,33 @@
+// Cookie key for storing PTO state.
 const COOKIE_NAME = "ptoData";
+// Milliseconds per day for date math.
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
+// PTO allowance per year in days (salaried guideline).
 const ACCRUAL_DAYS_PER_YEAR = 20;
+// Standard PTO hours per day (not user-configurable here).
 const HOURS_PER_DAY = 8;
+// Console log prefix to filter messages.
 const LOG_PREFIX = "[PTO]";
 
+// Hard-coded PTO entries (8h each) that act like pre-entered days; editable in code.
+const PTO_hard-coded_entries = [
+  { date: "2024-10-27", hours: 8 },
+  { date: "2024-12-10", hours: 8 },
+  { date: "2024-12-22", hours: 8 },
+  { date: "2024-12-23", hours: 8 },
+  { date: "2024-12-26", hours: 8 },
+];
+
+// Shape of stored state. startDate stays fixed; entries is PTO usage.
 const defaultState = {
   startDate: "2025-09-15",
   entries: [],
 };
 
+// Cache of DOM element references.
 const elements = {};
 
+// Initialize after DOM is ready (handles both cached and loading cases).
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", init);
 } else {
@@ -18,16 +35,17 @@ if (document.readyState === "loading") {
 }
 
 function init() {
-  cacheElements();
-  assertElements();
+  cacheElements(); // wire up element refs
+  assertElements(); // log if anything is missing
   console.log(LOG_PREFIX, "DOM ready, initializing");
-  const state = ensureState();
-  populateFormDefaults(state);
-  bindEvents();
-  updateUI(state);
+  const state = ensureState(); // load/normalize/persist cookie
+  populateFormDefaults(state); // seed inputs
+  bindEvents(); // attach handlers
+  updateUI(state); // paint initial balances/history
 }
 
 function cacheElements() {
+  // Grab all the elements we interact with so we don't query repeatedly.
   elements.ptoDate = document.getElementById("ptoDate");
   elements.ptoHours = document.getElementById("ptoHours");
   elements.ptoEntryForm = document.getElementById("pto-entry-form");
@@ -41,6 +59,7 @@ function cacheElements() {
 }
 
 function assertElements() {
+  // Verify we found everything; if not, log to aid debugging.
   Object.entries(elements).forEach(([key, el]) => {
     if (!el) {
       console.error(LOG_PREFIX, `Missing required element for ${key}. Check your HTML IDs.`);
@@ -49,6 +68,7 @@ function assertElements() {
 }
 
 function bindEvents() {
+  // Add PTO entry: prevent form submit navigation, load state, push entry, persist, refresh UI.
   elements.ptoEntryForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const state = ensureState();
@@ -67,6 +87,7 @@ function bindEvents() {
     updateUI(refreshed);
   });
 
+  // Clear all PTO history entries.
   elements.resetEntries.addEventListener("click", () => {
     const state = ensureState();
     console.log(LOG_PREFIX, "Clearing PTO history", state.entries);
@@ -77,6 +98,7 @@ function bindEvents() {
     updateUI(refreshed);
   });
 
+  // Delete specific PTO entry via delegated click on Delete buttons.
   elements.history.addEventListener("click", (event) => {
     const button = event.target.closest("[data-delete-index]");
     if (!button) return;
@@ -92,6 +114,7 @@ function bindEvents() {
     }
   });
 
+  // Recompute balances when the check date input changes.
   elements.checkDate.addEventListener("change", () => {
     const state = ensureState();
     console.log(LOG_PREFIX, "Check date changed to", elements.checkDate.value, "state", state);
@@ -100,6 +123,7 @@ function bindEvents() {
 }
 
 function populateFormDefaults(state) {
+  // Seed the form inputs with defaults on load.
   console.log(LOG_PREFIX, "Populating form defaults with state", state);
   if (!elements.ptoHours || !elements.ptoDate || !elements.checkDate) {
     console.error(LOG_PREFIX, "Required inputs missing; skipping populate");
@@ -112,6 +136,7 @@ function populateFormDefaults(state) {
 }
 
 function updateUI(state) {
+  // Central place to compute and paint balances + history.
   console.log(LOG_PREFIX, "Updating UI with state", state);
   const checkDate = elements.checkDate.value || toDateInputValue(new Date());
   const accruedHours = calculateAccruedHours(checkDate, state);
@@ -128,6 +153,7 @@ function updateUI(state) {
 }
 
 function calculateAccruedHours(targetDateString, state) {
+  // Convert annual PTO allowance into per-day accrual and multiply by elapsed days.
   console.log(LOG_PREFIX, "Calculating accrued hours for", targetDateString, "with state", state);
   const start = toStartOfDay(state.startDate);
   const target = toStartOfDay(targetDateString);
@@ -140,6 +166,7 @@ function calculateAccruedHours(targetDateString, state) {
 }
 
 function calculateUsedHours(targetDateString, state) {
+  // Sum PTO hours from entries that occur on/before the target date.
   console.log(LOG_PREFIX, "Calculating used hours for", targetDateString, "with state", state);
   const target = toStartOfDay(targetDateString);
   if (!target) return 0;
@@ -149,6 +176,7 @@ function calculateUsedHours(targetDateString, state) {
 }
 
 function renderHistory(state) {
+  // Show all entries sorted by date with delete controls.
   console.log(LOG_PREFIX, "Rendering history", state.entries);
   const sorted = state.entries
     .map((entry, index) => ({ ...entry, __index: index }))
@@ -176,15 +204,33 @@ function renderHistory(state) {
   });
 }
 
+function mergeDefaultEntries(existingEntries, defaults) {
+  // Add default code-defined entries if they are missing (unique by date+hours).
+  const seen = new Set(existingEntries.map((e) => `${e.date}|${e.hours}`));
+  const merged = [...existingEntries];
+  defaults.forEach((entry) => {
+    const key = `${entry.date}|${entry.hours}`;
+    if (!seen.has(key)) {
+      merged.push(entry);
+      seen.add(key);
+    }
+  });
+  return merged;
+}
+
 function ensureState() {
+  // Guarantee we always have a valid state object and write it back to the cookie.
   const state = loadState();
   // Strip any legacy hoursPerDay if present in existing cookies.
   const normalized = { startDate: state.startDate || defaultState.startDate, entries: state.entries || [] };
-  saveState(normalized);
-  return normalized;
+  const merged = mergeDefaultEntries(normalized.entries, PTO_hard-coded_entries);
+  const next = { ...normalized, entries: merged };
+  saveState(next);
+  return next;
 }
 
 function loadState() {
+  // Pull state JSON from cookie; default if missing or invalid.
   const raw = getCookie(COOKIE_NAME);
   if (!raw) {
     console.log(LOG_PREFIX, "No cookie found, seeding default state", defaultState);
@@ -207,6 +253,7 @@ function loadState() {
 }
 
 function saveState(state) {
+  // Persist state JSON into a cookie that lasts ~1 year.
   const expires = new Date(Date.now() + MS_PER_DAY * 365).toUTCString();
   const value = encodeURIComponent(JSON.stringify(state));
   console.log(LOG_PREFIX, "Persisting state to cookie", state);
@@ -215,6 +262,7 @@ function saveState(state) {
 }
 
 function getCookie(name) {
+  // Simple cookie reader by name (no decoding).
   const prefix = `${name}=`;
   const rawCookie = document.cookie
     .split(";")
@@ -226,10 +274,12 @@ function getCookie(name) {
 }
 
 function toDateInputValue(date) {
+  // Format Date object as yyyy-mm-dd for date inputs.
   return date.toISOString().slice(0, 10);
 }
 
 function toStartOfDay(value) {
+  // Normalize date strings to midnight to allow consistent comparisons.
   if (!value) return null;
   const normalized = new Date(`${value}T00:00:00`);
   if (Number.isNaN(normalized.getTime())) return null;
