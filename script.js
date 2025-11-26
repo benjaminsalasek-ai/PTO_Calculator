@@ -5,7 +5,7 @@ const HOURS_PER_DAY = 8;
 const LOG_PREFIX = "[PTO]";
 
 const defaultState = {
-  startDate: "2024-09-15",
+  startDate: "2025-09-15",
   entries: [],
 };
 
