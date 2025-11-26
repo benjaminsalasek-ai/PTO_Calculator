@@ -11,10 +11,11 @@ const defaultState = {
 
 const elements = {};
 
-init();
+document.addEventListener("DOMContentLoaded", init);
 
 function init() {
   cacheElements();
+  assertElements();
   const state = ensureState();
   populateFormDefaults(state);
   bindEvents();
@@ -32,6 +33,14 @@ function cacheElements() {
   elements.availableHours = document.getElementById("availableHours");
   elements.availableDays = document.getElementById("availableDays");
   elements.history = document.getElementById("history");
+}
+
+function assertElements() {
+  Object.entries(elements).forEach(([key, el]) => {
+    if (!el) {
+      console.error(LOG_PREFIX, `Missing required element for ${key}. Check your HTML IDs.`);
+    }
+  });
 }
 
 function bindEvents() {
