@@ -10,7 +10,7 @@ const HOURS_PER_DAY = 8;
 const LOG_PREFIX = "[PTO]";
 
 // Hard-coded PTO entries (8h each) that act like pre-entered days; editable in code.
-const PTO_hard-coded_entries = [
+const hard_coded_dates = [
   { date: "2024-10-27", hours: 8 },
   { date: "2024-12-10", hours: 8 },
   { date: "2024-12-22", hours: 8 },
@@ -223,7 +223,7 @@ function ensureState() {
   const state = loadState();
   // Strip any legacy hoursPerDay if present in existing cookies.
   const normalized = { startDate: state.startDate || defaultState.startDate, entries: state.entries || [] };
-  const merged = mergeDefaultEntries(normalized.entries, PTO_hard-coded_entries);
+  const merged = mergeDefaultEntries(normalized.entries, hard_coded_dates);
   const next = { ...normalized, entries: merged };
   saveState(next);
   return next;
