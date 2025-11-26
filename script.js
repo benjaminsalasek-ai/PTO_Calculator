@@ -11,17 +11,18 @@ const LOG_PREFIX = "[PTO]";
 
 // Hard-coded PTO entries (8h each) that act like pre-entered days; editable in code.
 const hard_coded_dates = [
-  { date: "2025-10-27", hours: 8 },
-  { date: "2025-12-10", hours: 8 },
-  { date: "2025-12-22", hours: 8 },
-  { date: "2025-12-23", hours: 8 },
-  { date: "2025-12-26", hours: 8 },
+  { date: "2025-10-27", hours: HOURS_PER_DAY },
+  { date: "2025-12-10", hours: HOURS_PER_DAY },
+  { date: "2025-12-22", hours: HOURS_PER_DAY },
+  { date: "2025-12-23", hours: HOURS_PER_DAY },
+  { date: "2025-12-26", hours: HOURS_PER_DAY },
 ];
 
 // Shape of stored state. startDate stays fixed; entries is PTO usage.
 const defaultState = {
   startDate: "2025-09-15",
   entries: [],
+  suppressedDefaults: [],
 };
 
 // Cache of DOM element references.
@@ -106,8 +107,10 @@ function bindEvents() {
     const state = ensureState();
     console.log(LOG_PREFIX, "Deleting PTO entry", { index, state });
     if (Number.isInteger(index) && index >= 0 && index < state.entries.length) {
+      const entry = state.entries[index];
       const nextEntries = state.entries.filter((_, i) => i !== index);
-      saveState({ ...state, entries: nextEntries });
+      const suppressedDefaults = addSuppressedDefault(entry, state.suppressedDefaults || [], hard_coded_dates);
+      saveState({ ...state, entries: nextEntries, suppressedDefaults });
       const refreshed = ensureState();
       console.log(LOG_PREFIX, "State after delete", refreshed);
       updateUI(refreshed);
@@ -180,7 +183,7 @@ function renderHistory(state) {
   console.log(LOG_PREFIX, "Rendering history", state.entries);
   const sorted = state.entries
     .map((entry, index) => ({ ...entry, __index: index }))
-    .sort((a, b) => new Date(a.date) - new Date(b.date));
+    .sort((a, b) => new Date(b.date) - new Date(a.date)); // newest first
   elements.history.innerHTML = "";
   if (!sorted.length) {
     elements.history.innerHTML = "<li>No PTO recorded yet.</li>";
@@ -204,13 +207,14 @@ function renderHistory(state) {
   });
 }
 
-function mergeDefaultEntries(existingEntries, defaults) {
-  // Add default code-defined entries if they are missing (unique by date+hours).
-  const seen = new Set(existingEntries.map((e) => `${e.date}|${e.hours}`));
+function mergeDefaultEntries(existingEntries, defaults, suppressed) {
+  // Add default code-defined entries if they are missing (unique by date+hours) and not suppressed.
+  const suppressedSet = new Set((suppressed || []).map(entryKey));
+  const seen = new Set(existingEntries.map(entryKey));
   const merged = [...existingEntries];
   defaults.forEach((entry) => {
-    const key = `${entry.date}|${entry.hours}`;
-    if (!seen.has(key)) {
+    const key = entryKey(entry);
+    if (!seen.has(key) && !suppressedSet.has(key)) {
       merged.push(entry);
       seen.add(key);
     }
@@ -218,12 +222,29 @@ function mergeDefaultEntries(existingEntries, defaults) {
   return merged;
 }
 
+function addSuppressedDefault(entry, suppressed, defaults) {
+  // Track deleted default entries so they are not re-inserted on the next load.
+  const key = entryKey(entry);
+  const defaultKeys = new Set(defaults.map(entryKey));
+  if (!defaultKeys.has(key)) return suppressed; // only suppress if it was a code default
+  if (suppressed.map(entryKey).includes(key)) return suppressed;
+  return [...suppressed, { date: entry.date, hours: entry.hours }];
+}
+
+function entryKey(entry) {
+  return `${entry.date}|${entry.hours}`;
+}
+
 function ensureState() {
   // Guarantee we always have a valid state object and write it back to the cookie.
   const state = loadState();
   // Strip any legacy hoursPerDay if present in existing cookies.
-  const normalized = { startDate: state.startDate || defaultState.startDate, entries: state.entries || [] };
-  const merged = mergeDefaultEntries(normalized.entries, hard_coded_dates);
+  const normalized = {
+    startDate: state.startDate || defaultState.startDate,
+    entries: state.entries || [],
+    suppressedDefaults: state.suppressedDefaults || [],
+  };
+  const merged = mergeDefaultEntries(normalized.entries, hard_coded_dates, normalized.suppressedDefaults);
   const next = { ...normalized, entries: merged };
   saveState(next);
   return next;
@@ -242,6 +263,7 @@ function loadState() {
       ...defaultState,
       ...parsed,
       entries: Array.isArray(parsed.entries) ? parsed.entries : [],
+      suppressedDefaults: Array.isArray(parsed.suppressedDefaults) ? parsed.suppressedDefaults : [],
     };
     console.log(LOG_PREFIX, "Loaded state from cookie", state);
     return state;
